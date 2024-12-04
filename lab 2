@@ -1,0 +1,112 @@
+lab 2 :
+
+# from orig_data, pick a subset
+restrict1 <- (orig_data$x1 == 5) | (orig_data$x2 == "Blue")
+data_new <- subset(orig_data,restrict1)
+
+require(tidyverse)
+require(ggplot2)
+
+# this would be different for you
+setwd("..\\..\\data\\Household Pulse Survey Phase4 Cycle2")
+load("Household_Pulse_data_ph4c2.RData")
+
+# sometimes numbers are more useful than categories
+
+Household_Pulse_data$income_midpoint <- fct_recode(Household_Pulse_data$INCOME, 
+                                                   "12500" = "HH income less than $25k",
+                                                   "30000" = "HH income $25k - $34.9k",
+                                                   "40000" = "HH income $35k - 49.9",
+                                                   "62500" = "HH income $50k - 74.9",
+                                                   "82500" = "HH income $75 - 99.9",
+                                                   "125000" = "HH income $100k - 149",
+                                                   "175000" = "HH income $150 - 199",
+                                                   "225000" = "HH income $200k +",
+                                                   NULL = "NA")
+Household_Pulse_data$income_midpoint <- as.numeric(levels(Household_Pulse_data$income_midpoint))[Household_Pulse_data$income_midpoint]
+
+
+Household_Pulse_data$Educ_years <- fct_recode(Household_Pulse_data$EEDUC,
+                                              "8" = "less than hs",
+                                              "11" = "some hs",
+                                              "12" = "HS diploma",
+                                              "13" = "some coll",
+                                              "14" = "assoc deg",
+                                              "16" = "bach deg",
+                                              "18" = "adv deg")
+
+Household_Pulse_data$Educ_years <- as.numeric(levels(Household_Pulse_data$Educ_years))[Household_Pulse_data$Educ_years]
+
+Household_Pulse_data$Age <- 2024 - Household_Pulse_data$TBIRTH_YEAR
+
+# this looks at just 3 categories
+Household_Pulse_data$Education <- fct_recode(Household_Pulse_data$EEDUC, 
+                                             "high school" = "HS diploma",
+                                             "some college" = "some coll",
+                                             "some college" = "assoc deg",
+                                             "college grad" = "bach deg",
+                                             "college grad" = "adv deg",
+                                             NULL = "less than hs",
+                                             NULL = "some hs")
+
+
+
+
+# might want to plot a more modestly sized dataset, to start
+HHP_NY <- Household_Pulse_data %>% filter(EST_ST == "New York")
+
+# or compare NY & NJ
+HHP_NY_NJ <- Household_Pulse_data %>% filter((EST_ST == "New York") | (EST_ST == "New Jersey") )
+
+
+p <- ggplot(data = HHP_NY_NJ,
+            mapping = aes(x = EEDUC, fill = EST_ST))
+p + geom_bar()
+
+
+# compares just numbers in 2 states
+p + geom_bar(position = "fill") # meh
+
+p + geom_bar(mapping = aes(
+  y = after_stat(prop),
+  group = EST_ST)) # shows proportions but stacks histograms in weird way
+
+p + geom_bar(position = "dodge",
+             mapping = aes(
+               y = after_stat(prop),
+               group = EST_ST)) # now compares the 2 histograms, might be useful 
+
+# a bit nicer stuff
+library(viridis)
+
+## Loading required package: viridisLite
+
+HHP_use <- Household_Pulse_data %>% filter( TBIRTH_YEAR > 1936 )
+HHP_use <- HHP_use %>% drop_na(Education) 
+
+
+HHP_use$religious_n <- fct_recode(HHP_use$SUPPORT3, 
+                                              "1" = "attend church or religious ceremony never or less than 1 per year",
+                                              "2" = "1 to 3 per year",
+                                              "3" = "4 to 11 per year",
+                                              "4" = "12+ times per year",
+                                              NULL = "NA")
+HHP_use$religious_n <- as.numeric(levels(HHP_use$religious_n))[HHP_use$religious_n]
+
+
+HHP_graph1 <- HHP_use %>% drop_na(religious_n)
+
+p_age_religion <- ggplot(data = HHP_graph1,
+                         mapping = aes(x = Age,
+                                       y = religious_n,
+                                       color = Education,
+                                       fill = Education))
+
+p_age_religion + geom_smooth(aes(color=Education, fill=Education)) + 
+  scale_color_viridis_d(option = "magma", end = 0.75) + 
+  scale_fill_viridis_d(option = "inferno", end = 0.75) + 
+  labs(x = "Age", y = "religious attendance", fill = "Education") + guides(color = "none")
+
+
+## `geom_smooth()` using method = 'gam' and formula = 'y ~ s(x, bs = "cs")'
+
