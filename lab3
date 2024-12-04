@@ -1,0 +1,68 @@
+setwd("..\\..\\data\\Household Pulse Survey Phase4 Cycle2")
+load("Household_Pulse_data_ph4c2.RData")
+setwd("..\\..\\EcoB2000_projects\\ecob2000_lab3")
+# note your directory structures might be different so "setwd" would be different on your machine
+require(tidyverse)
+require(class)
+require(caret)
+
+# we will want to use these later
+Household_Pulse_data$Age <- 2024 - Household_Pulse_data$TBIRTH_YEAR 
+# remember topcoding, perhaps you can do a bit better to take account of that?
+
+Household_Pulse_data$Educ_years <- fct_recode(Household_Pulse_data$EEDUC,
+                                              "8" = "less than hs",
+                                              "11" = "some hs",
+                                              "12" = "HS diploma",
+                                              "13" = "some coll",
+                                              "14" = "assoc deg",
+                                              "16" = "bach deg",
+                                              "18" = "adv deg")
+
+Household_Pulse_data$Educ_years <- as.numeric(levels(Household_Pulse_data$Educ_years))[Household_Pulse_data$Educ_years]
+
+xtabs(formula = ~HADCOVIDRV + LONGCOVID, data = Household_Pulse_data)
+
+##                                     LONGCOVID
+## HADCOVIDRV                              NA had symptoms 3mo or more Long Covid
+##   NA                                 10717                                   0
+##   yes tested + or doc told had Covid  1624                                9685
+##   no                                 23957                                   0
+##                                     LONGCOVID
+## HADCOVIDRV                              no
+##   NA                                     0
+##   yes tested + or doc told had Covid 25169
+##   no                                     0
+
+dat_hadcovid <- Household_Pulse_data %>% filter(HADCOVIDRV == "yes tested + or doc told had Covid")
+
+# always check to make sure this went right!
+summary(dat_hadcovid)
+
+norm_varb <- function(X_in) {
+  (X_in - min(X_in, na.rm = TRUE))/( max(X_in, na.rm = TRUE) - min(X_in, na.rm = TRUE)  )
+}
+
+data_use_prelim <- data.frame(norm_varb(dat_hadcovid$Age),norm_varb(dat_hadcovid$Educ_years))
+
+good_obs_data_use <- complete.cases(data_use_prelim,dat_hadcovid$LONGCOVID)
+dat_use <- subset(data_use_prelim,good_obs_data_use)
+y_use <- subset(dat_hadcovid$LONGCOVID,good_obs_data_use)
+
+set.seed(12345)
+NN_obs <- sum(good_obs_data_use == 1)
+select1 <- (runif(NN_obs) < 0.8)
+train_data <- subset(dat_use,select1)
+test_data <- subset(dat_use,(!select1))
+cl_data <- y_use[select1]
+true_data <- y_use[!select1]
+
+summary(cl_data)
+summary(train_data)
+
+for (indx in seq(1, 9, by= 2)) {
+ pred_y <- knn3Train(train_data, test_data, cl_data, k = indx, l = 0, prob = FALSE, use.all = TRUE)
+ num_correct_labels <- sum(pred_y == true_data)
+ correct_rate <- num_correct_labels/length(true_data)
+ print(c(indx,correct_rate))
+}
